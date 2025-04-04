@@ -1,0 +1,8 @@
+{
+    "auth_token": "",
+    "api_url": "",
+    "drawing_prefixes": ["即梦", "jimeng"],
+    "image_output_dir": "./plugins/jimeng/images",
+    "clean_interval": 3,
+    "clean_check_interval": 3600
+}
