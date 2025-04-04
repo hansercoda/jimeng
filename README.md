@@ -19,8 +19,8 @@
 3. 配置 config.json 文件：
    ```json
    {
-       "auth_token": "你的认证令牌",
-       "api_url": "http://106.12.4.186:8000/v1/images/generations",
+       "auth_token": "<session-id>",
+       "api_url": "http://<jimeng-free-api-ip>:8000/v1/images/generations",
        "drawing_prefixes": ["即梦", "jimeng"],
        "image_output_dir": "./plugins/jimeng/images",
        "clean_interval": 3,
