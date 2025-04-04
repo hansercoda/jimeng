@@ -24,7 +24,7 @@ from config import conf
     hidden=False,
     desc="A plugin for generating images using Jimeng AI.",
     version="1.0.0",
-    author="Your Name",
+    author="Coda",
 )
 class Jimeng(Plugin):
     def __init__(self):
@@ -43,6 +43,7 @@ class Jimeng(Plugin):
             self.image_output_dir = conf.get("image_output_dir", "./plugins/jimeng/images")
             self.clean_interval = float(conf.get("clean_interval", 3))  # 天数
             self.clean_check_interval = int(conf.get("clean_check_interval", 3600))  # 秒数，默认1小时
+            self.max_images = int(conf.get("max_images", 1))  # 最大输出图片数量
 
             if not os.path.exists(self.image_output_dir):
                 os.makedirs(self.image_output_dir)
@@ -52,7 +53,7 @@ class Jimeng(Plugin):
             # 启动定时清理任务
             self.schedule_next_run()
 
-            logger.info(f"[Jimeng] 初始化成功，清理间隔设置为 {self.clean_interval} 天，检查间隔为 {self.clean_check_interval} 秒")
+            logger.info(f"[Jimeng] 初始化成功，清理间隔设置为 {self.clean_interval} 天，检查间隔为 {self.clean_check_interval} 秒，最大输出图片数量为 {self.max_images}")
         except Exception as e:
             logger.error(f"[Jimeng] 初始化失败，错误：{e}")
             raise e
@@ -87,16 +88,24 @@ class Jimeng(Plugin):
             if content.lower() == "clean_all":
                 reply = self.clean_all_images()
             else:
-                image_url = self.generate_image(content)
-                logger.debug(f"[Jimeng] 生成的图片URL: {image_url}")
+                image_urls = self.generate_image(content)
+                logger.debug(f"[Jimeng] 生成的图片URLs: {image_urls}")
 
-                if image_url:
-                    image_path = self.download_and_save_image(image_url)
-                    logger.debug(f"[Jimeng] 图片已保存到: {image_path}")
+                if image_urls:
+                    replies = []
+                    for url in image_urls:
+                        image_path = self.download_and_save_image(url)
+                        logger.debug(f"[Jimeng] 图片已保存到: {image_path}")
 
-                    with open(image_path, 'rb') as f:
-                        image_storage = BytesIO(f.read())
-                    reply = Reply(ReplyType.IMAGE, image_storage)
+                        with open(image_path, 'rb') as f:
+                            image_storage = BytesIO(f.read())
+                        replies.append(Reply(ReplyType.IMAGE, image_storage))
+
+                    if len(replies) == 1:
+                        reply = replies[0]
+                    else:
+                        reply = Reply(ReplyType.TEXT, f"已生成 {len(replies)} 张图片：")
+                        reply.replies = replies
                 else:
                     logger.error("[Jimeng] 生成图片失败")
                     reply = Reply(ReplyType.ERROR, "生成图片失败。")
@@ -109,7 +118,7 @@ class Jimeng(Plugin):
             e_context["reply"] = reply
             e_context.action = EventAction.BREAK_PASS
 
-    def generate_image(self, prompt: str) -> str:
+    def generate_image(self, prompt: str) -> List[str]:
         try:
             payload = {
                 "model": "jimeng-2.1",
@@ -130,7 +139,8 @@ class Jimeng(Plugin):
             json_response = response.json()
 
             if 'data' in json_response and len(json_response['data']) > 0:
-                return json_response['data'][0]['url']
+                # 返回指定数量的图片URL
+                return [item['url'] for item in json_response['data'][:self.max_images]]
             else:
                 raise Exception("API返回数据格式错误")
 
@@ -192,6 +202,7 @@ class Jimeng(Plugin):
         help_text += "1. 使用前缀触发：即梦 或 jimeng\n"
         help_text += "2. 直接输入描述文本即可生成图片\n"
         help_text += "3. 输入 clean_all 可以清理所有生成的图片\n"
+        help_text += "4. 可在配置文件中设置 max_images 控制输出图片数量\n"
         help_text += "示例：\n"
         help_text += "即梦 可爱的熊猫漫画\n"
         return help_text
